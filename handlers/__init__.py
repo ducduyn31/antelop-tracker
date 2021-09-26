@@ -7,6 +7,7 @@ from norfair import Tracker, Detection
 
 def yolo_detections_to_norfair_detections(yolo_detection: list) -> List[Detection]:
     norfair_detections: List[Detection] = []
+    # TODO: Update this algorithm, wrong logic
     bbox = np.array(
         [
             [yolo_detection[0], yolo_detection[1]],
