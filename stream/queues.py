@@ -10,15 +10,14 @@ handlers = dict()
 
 @app.agent(human_detect_minimal_queue, concurrency=int(os.getenv('FAUST_CONCURRENCY')))
 async def on_human_detected(stream):
-    async for events in stream.take(20, within=10):
-        for event in events:
-            source, order, timestamp = event['source'], event['order'], event['timestamp']
-            detections = event['detections']
+    async for event in stream:
+        source, order, timestamp = event['source'], event['order'], event['timestamp']
+        detections = event['detections']
 
-            if source not in handlers or not handlers[source].is_alive():
-                proc = TrackingProcess(source=source)
-                handlers[source] = proc
-                proc.start()
+        if source not in handlers or not handlers[source].is_alive():
+            proc = TrackingProcess(source=source, redis_uri=os.getenv('REDIS_URI'))
+            handlers[source] = proc
+            proc.start()
 
-            if len(detections) > 0:
-                handlers[source].add_new_detection(event)
+        if len(detections) > 0:
+            handlers[source].add_new_detection(event)
