@@ -1,9 +1,12 @@
+import json
+import os
+
 import redis
 
 from utils import Singleton
 
 
-class PubSub(metaclass=Singleton):
+class PubSub:
 
     def __init__(self, connection_uri: str):
         host, port, db = self.__parse_connection_uri(connection_uri)
@@ -16,13 +19,13 @@ class PubSub(metaclass=Singleton):
         if 'K' not in pubsub_config or 'E' not in pubsub_config or 'A' not in pubsub_config:
             self._redis.config_set('notify-keyspace-events', 'KEA')
         self._pubsub = self._redis.pubsub()
-        self._pubsub.run_in_thread(sleep_time=.01)
 
     def subscribe(self, key_event, callback):
-        self._pubsub.psubscribe(f'__keyevent@{self._db}__:{key_event}', callback)
+        self._pubsub.subscribe(**{f'__keyevent@{self._db}__:{key_event}': callback})
+        self._pubsub.run_in_thread(sleep_time=.01)
 
     def publish_time_event(self, key, value, expire):
-        self._redis.set(key, value, ex=expire)
+        self._redis.set(key, json.dumps(value), ex=expire)
 
     @staticmethod
     def __parse_connection_uri(uri: str):

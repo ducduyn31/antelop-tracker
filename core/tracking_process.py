@@ -16,10 +16,10 @@ class TrackingProcess(Process):
             distance_function=euclidean_distance,
             distance_threshold=distance_threshold,
         )
+        self._redis_uri = redis_uri
         self._heap = []
         self._source = source
-        self._subscribed = False
-        self._pubsub = PubSub(connection_uri=redis_uri)
+        self._pubsub = None
         self._last_frame_order = -1
 
     def add_new_detection(self, detections):
@@ -32,14 +32,16 @@ class TrackingProcess(Process):
 
         message = (order, new_detection)
         heapq.heappush(self._heap, message)
-        self._pubsub.publish_time_event(new_detection['cid'], new_detection, 5)
+        self._pubsub.publish_time_event(new_detection['frame_id'], new_detection, 5)
+        self._last_frame_order = order
 
-    def start_listening(self):
-        if not self._subscribed:
-            self._pubsub.subscribe('expired', on_human_detect)
+    def setup_pubsub(self):
+        if self._pubsub is None:
+            self._pubsub = PubSub(connection_uri=self._redis_uri)
+            self._pubsub.subscribe('expired', on_human_detect(heap=self._heap, tracker=self._tracker))
 
     def run(self) -> None:
-        self.start_listening()
+        self.setup_pubsub()
         while True:
             new_detection = self._queue.get(block=True)
             self.handle_new_detection(new_detection)
