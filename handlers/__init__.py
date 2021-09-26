@@ -23,6 +23,10 @@ def on_human_detect(heap, tracker: Tracker):
         _, event = heapq.heappop(heap)
         source, order, timestamp = event['source'], event['order'], event['timestamp']
         detections = event['detections']
+        # TODO: implement this
         tracker.update()
+
+        # TODO: dispatch an event to kafka to sync object id
+        #  with subject id by requiring recognize service to sync
 
     return handle_event
