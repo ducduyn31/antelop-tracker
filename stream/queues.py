@@ -1,6 +1,7 @@
 import os
 
 from core.faust_app import faust_app as app
+from core.pubsub import PubSub
 from core.tracking_process import TrackingProcess
 from stream.topics import human_detect_minimal_queue
 
