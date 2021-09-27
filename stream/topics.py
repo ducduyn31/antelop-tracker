@@ -4,3 +4,8 @@ human_detect_minimal_queue = app.topic(
     'human_detect_minimal',
     value_serializer='json',
 )
+
+tracking_queue = app.topic(
+    'tracking',
+    value_serializer='json'
+)

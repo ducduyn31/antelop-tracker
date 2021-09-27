@@ -1,6 +1,17 @@
-def euclidean_distance():
-    # TODO: Implement this for multi direction travel
-    pass
+import numpy as np
+
+
+def euclidean_distance(detection, tracked_object):
+    return np.linalg.norm(detection.points - tracked_object.estimate)
+
+
+def normalize_bbox(detection):
+    return np.array(
+        [
+            [int(detection['xyxy'][0] * 0.01), int(detection['xyxy'][1] * 0.01)],
+            [int(detection['xyxy'][2] * 0.01), int(detection['xyxy'][3] * 0.01)]
+        ]
+    )
 
 
 class Singleton(type):

@@ -1,131 +1,89 @@
-import argparse
+import heapq
+from core.faust_app import faust_app as app
+from core.pubsub import PubSub
+from utils import euclidean_distance
+from stream.topics import human_detect_minimal_queue as topic
+import uuid
+from typing import List, Sequence
 
-import cv2
+import faust
 import numpy as np
-import torch
-import yolov5
-from typing import Union, List, Optional, Sequence
-
-import norfair
+import redis
 from norfair import Detection, Tracker
 
-max_distance_between_points: int = 100
 
-
-class YOLO:
-    def __init__(self, model_path: str, device: Optional[str] = None):
-        if device is not None and "cuda" in device and not torch.cuda.is_available():
-            raise Exception(
-                "Selected device='cuda', but cuda is not available to Pytorch."
-            )
-        # automatically set device if its None
-        elif device is None:
-            device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        # load model
-        self.model = yolov5.load(model_path, device=device)
-
-    def __call__(
-        self,
-        img: Union[str, np.ndarray],
-        conf_threshold: float = 0.25,
-        iou_threshold: float = 0.45,
-        image_size: int = 720,
-        classes: Optional[List[int]] = None
-    ) -> torch.tensor:
-
-        self.model.conf = conf_threshold
-        self.model.iou = iou_threshold
-        if classes is not None:
-            self.model.classes = classes
-        detections = self.model(img, size=image_size)
-        return detections
-
-
-def euclidean_distance(detection, tracked_object):
-    return np.linalg.norm(detection.points - tracked_object.estimate)
-
-
-def yolo_detections_to_norfair_detections(
-    yolo_detections: torch.tensor,
-    track_points: str = 'centroid'  # bbox or centroid
-) -> List[Detection]:
-    """convert detections_as_xywh to norfair detections
-    """
+def yolo_detections_to_norfair_detections(yolo_detections: list) -> List[Detection]:
     norfair_detections: List[Detection] = []
-
-    if track_points == 'centroid':
-        detections_as_xywh = yolo_detections.xywh[0]
-        for detection_as_xywh in detections_as_xywh:
-            centroid = np.array(
-                [
-                    detection_as_xywh[0].item(),
-                    detection_as_xywh[1].item()
-                ]
-            )
-            scores = np.array([detection_as_xywh[4].item()])
-            norfair_detections.append(
-                Detection(points=centroid, scores=scores)
-            )
-    elif track_points == 'bbox':
-        detections_as_xyxy = yolo_detections.xyxy[0]
-        for detection_as_xyxy in detections_as_xyxy:
-            bbox = np.array(
-                [
-                    [detection_as_xyxy[0].item(), detection_as_xyxy[1].item()],
-                    [detection_as_xyxy[2].item(), detection_as_xyxy[3].item()]
-                ]
-            )
-            scores = np.array([detection_as_xyxy[4].item(), detection_as_xyxy[4].item()])
-            norfair_detections.append(
-                Detection(points=bbox, scores=scores)
-            )
-
+    for yolo_detection in yolo_detections:
+        bbox = np.array(
+            [
+                [yolo_detection[0], yolo_detection[1]],
+                [yolo_detection[2], yolo_detection[3]]
+            ]
+        )
+        scores = np.array([yolo_detection[4], yolo_detection[4]])
+        norfair_detections.append(Detection(points=bbox, scores=scores))
     return norfair_detections
 
 
-def check_object(
-    objects: Sequence["TrackedObject"]
-):
+def tracking_object(sid, objects: Sequence["TrackedObject"]):
+    r = redis.Redis(db=3)
     for obj in objects:
         if not obj.live_points.any():
             continue
-        print(str(obj.id))
+        # r.set(str(obj.id), "ok", ex=os.getenv("TRACKING_DELAY_TIME"))
+        r.set(str(obj.id), "ok", 300)
+        try:
+            temp = s_uuids[str(obj)]
+            if sid not in temp:
+                temp.append(sid)
+                if len(temp) > 200:
+                    temp = temp[50:]
+                s_uuids[str(obj)] = temp
+        except:
+            s_uuids[str(obj)] = [sid]
+        print(str(obj))
 
 
-parser = argparse.ArgumentParser(description="Track objects in a video.")
-parser.add_argument("files", type=str, nargs="+", help="Video files to process")
-parser.add_argument("--detector_path", type=str, default="yolov5s.pt", help="YOLOv5 model path")
-parser.add_argument("--img_size", type=int, default="720", help="YOLOv5 inference size (pixels)")
-parser.add_argument("--conf_thres", type=float, default="0.25", help="YOLOv5 object confidence threshold")
-parser.add_argument("--iou_thresh", type=float, default="0.45", help="YOLOv5 IOU threshold for NMS")
-parser.add_argument('--classes', nargs='+', type=int, help='Filter by class: --classes 0, or --classes 0 2 3')
-parser.add_argument("--device", type=str, default=None, help="Inference device: 'cpu' or 'cuda'")
-parser.add_argument("--track_points", type=str, default="centroid", help="Track points: 'centroid' or 'bbox'")
-args = parser.parse_args()
+def event_handler(msg):
+    try:
+        key = msg["data"].decode("utf-8")
+        if "orderKey" in key:
+            yolo_detections = heapq.heappop(heap_detection)[1]
+            print(yolo_detections)
+            source = yolo_detections['source']
+            detections = yolo_detections['detections']
+            sid = yolo_detections['id']
+            norfair_detection = yolo_detections_to_norfair_detections(yolo_detections=detections)
+            tracking_object(sid, trackers[source].update(norfair_detection))
+    except Exception as exp:
+        print(exp)
 
-model = YOLO(args.detector_path, device=args.device)
 
-for input_path in args.files:
-    video = cv2.VideoCapture('rtsp://0.0.0.0:8554/live.stream')
-    tracker = Tracker(
-        distance_function=euclidean_distance,
-        distance_threshold=max_distance_between_points,
-    )
-    while True:
-        ret, frame = video.read()
-        yolo_detections = model(
-            frame,
-            conf_threshold=args.conf_thres,
-            iou_threshold=args.conf_thres,
-            image_size=args.img_size,
-            classes=args.classes
-        )
-        print(yolo_detections.xywh)
-        detections = yolo_detections_to_norfair_detections(yolo_detections, track_points=args.track_points)
-        tracked_objects = tracker.update(detections=detections)
-        check_object(tracked_objects)
-        norfair.draw_tracked_objects(frame, tracked_objects)
-        cv2.imshow('tracking', frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
+# max_distance_between_points = os.getenv("MAX_DISTANCE_BETWEEN_POINTS")
+max_distance_between_points = 50
+
+trackers = {}
+s_uuids = {}
+
+heap_detection = []
+
+cache = redis.Redis()
+pubsub = cache.pubsub()
+pubsub.psubscribe(**{"__keyevent@0__:expired": event_handler})
+pubsub.run_in_thread(sleep_time=0.01)
+
+
+@app.agent(topic)
+async def on_tracking(detection_messages: faust.Stream):
+    async for detection in detection_messages:
+        if detection['source'] not in list(trackers.keys()):
+            trackers[detection['source']] = Tracker(
+                distance_function=euclidean_distance,
+                distance_threshold=float(max_distance_between_points),
+            )
+        record = [detection["order"], detection]
+        heapq.heappush(heap_detection, record)
+        heapq.heapify(heap_detection)
+        yolo_id = str(uuid.uuid4())
+        cache.set('orderKey_%s' % yolo_id, '', ex=5)

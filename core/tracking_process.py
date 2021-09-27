@@ -1,4 +1,6 @@
+import asyncio
 import heapq
+import threading
 from multiprocessing import Process, Queue
 
 from norfair import Tracker
@@ -12,14 +14,13 @@ class TrackingProcess(Process):
     def __init__(self, source, distance_threshold=50, redis_uri='localhost:6379'):
         super().__init__()
         self._queue = Queue()
-        self._tracker = Tracker(
-            distance_function=euclidean_distance,
-            distance_threshold=distance_threshold,
-        )
+        self._tracker = None
         self._redis_uri = redis_uri
         self._heap = []
         self._source = source
+        self._distance_threshold = distance_threshold
         self._pubsub = None
+        self._loop = None
         self._last_frame_order = -1
 
     def add_new_detection(self, detections):
@@ -37,8 +38,14 @@ class TrackingProcess(Process):
 
     def setup_pubsub(self):
         if self._pubsub is None:
+            self._tracker = Tracker(
+                distance_function=euclidean_distance,
+                distance_threshold=self._distance_threshold,
+            )
             self._pubsub = PubSub(connection_uri=self._redis_uri)
-            self._pubsub.subscribe('expired', on_human_detect(heap=self._heap, tracker=self._tracker))
+            self._loop = asyncio.get_event_loop()
+            self._pubsub.subscribe('expired', on_human_detect(self._loop, heap=self._heap, tracker=self._tracker))
+
 
     def run(self) -> None:
         self.setup_pubsub()
