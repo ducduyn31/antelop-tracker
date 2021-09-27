@@ -38,7 +38,7 @@ def tracking_object(loop, topic, detections, source, objects):
                 match_id = {
                     "object_id": obj_id,
                     "uuid": detection['id'],
-                    "sources": source
+                    "source": source
                 }
                 loop.call_soon_threadsafe(loop.create_task, topic.send(value=match_id))
                 break
