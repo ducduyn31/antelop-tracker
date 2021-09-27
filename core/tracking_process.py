@@ -1,8 +1,10 @@
 import asyncio
 import heapq
+import os
 import threading
 from multiprocessing import Process, Queue
 
+import faust
 from norfair import Tracker
 
 from core.pubsub import PubSub
@@ -21,6 +23,8 @@ class TrackingProcess(Process):
         self._distance_threshold = distance_threshold
         self._pubsub = None
         self._loop = None
+        self._kafka_app = None
+        self._topic = None
         self._last_frame_order = -1
 
     def add_new_detection(self, detections):
@@ -43,9 +47,16 @@ class TrackingProcess(Process):
                 distance_threshold=self._distance_threshold,
             )
             self._pubsub = PubSub(connection_uri=self._redis_uri)
-            self._loop = asyncio.get_event_loop()
-            self._pubsub.subscribe('expired', on_human_detect(self._loop, heap=self._heap, tracker=self._tracker))
-
+            self._loop = asyncio.new_event_loop()
+            threading.Thread(target=self._loop.run_forever, daemon=True).start()
+            self._kafka_app = faust.App('antelope-tracker',
+                                        broker=os.getenv('KAFKA_URI'),
+                                        value_serializer='json', )
+            self._topic = self._kafka_app.topic(
+                'tracking',
+                value_serializer='json'
+            )
+            self._pubsub.subscribe('expired', on_human_detect(loop=self._loop, topic=self._topic, heap=self._heap, tracker=self._tracker))
 
     def run(self) -> None:
         self.setup_pubsub()

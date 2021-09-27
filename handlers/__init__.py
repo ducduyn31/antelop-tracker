@@ -1,7 +1,10 @@
 import asyncio
 import heapq
+import threading
+import time
 from typing import List, Sequence
 
+import faust.cli.send
 import numpy as np
 from norfair import Tracker, Detection
 from stream.topics import tracking_queue
@@ -17,8 +20,8 @@ def yolo_detections_to_norfair_detections(yolo_detections: list) -> List[Detecti
     return norfair_detections
 
 
-def tracking_object(loop, detections, source, objects: Sequence["TrackedObject"]):
-    asyncio.set_event_loop(loop)
+def tracking_object(loop, topic, detections, source, objects):
+
     for obj in objects:
         if not obj.live_points.any():
             continue
@@ -37,18 +40,17 @@ def tracking_object(loop, detections, source, objects: Sequence["TrackedObject"]
                     "uuid": detection['id'],
                     "sources": source
                 }
-                print(match_id)
-                loop.run_until_complete(asyncio.wait([tracking_queue.send(value=match_id)]))
-                print('done')
+                loop.call_soon_threadsafe(loop.create_task, topic.send(value=match_id))
                 break
 
 
-def on_human_detect(loop, heap, tracker: Tracker):
+def on_human_detect(loop, topic, heap, tracker: Tracker):
     def handle_event(_):
         _, event = heapq.heappop(heap)
         source, order, timestamp = event['source'], event['order'], event['timestamp']
         detections = event['detections']
         norfair_detection = yolo_detections_to_norfair_detections(yolo_detections=detections)
         objects = tracker.update(norfair_detection)
-        tracking_object(loop, detections, source, objects)
+        tracking_object(loop, topic, detections, source, objects)
+
     return handle_event
