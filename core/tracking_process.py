@@ -13,7 +13,7 @@ from utils import euclidean_distance
 
 
 class TrackingProcess(Process):
-    def __init__(self, source, distance_threshold=50, redis_uri='localhost:6379'):
+    def __init__(self, source, distance_threshold=5, redis_uri='localhost:6379'):
         super().__init__()
         self._queue = Queue()
         self._tracker = None

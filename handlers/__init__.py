@@ -28,8 +28,8 @@ def tracking_object(loop, topic, detections, source, objects):
         obj_id = obj.id
         obj_bbox = np.array(
             [
-                [int(obj.last_detection.points[0][0]), int(obj.last_detection.points[0][1])],
-                [int(obj.last_detection.points[1][0]), int(obj.last_detection.points[1][1])]
+                [np.float32(obj.last_detection.points[0][0]), np.float32(obj.last_detection.points[0][1])],
+                [np.float32(obj.last_detection.points[1][0]), np.float32(obj.last_detection.points[1][1])]
             ]
         )
         for detection in detections:

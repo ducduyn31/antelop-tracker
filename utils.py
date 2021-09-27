@@ -8,8 +8,8 @@ def euclidean_distance(detection, tracked_object):
 def normalize_bbox(detection):
     return np.array(
         [
-            [int(detection['xyxy'][0] * 0.01), int(detection['xyxy'][1] * 0.01)],
-            [int(detection['xyxy'][2] * 0.01), int(detection['xyxy'][3] * 0.01)]
+            [np.float32(detection['xyxy'][0] * 0.01), np.float32(detection['xyxy'][1] * 0.01)],
+            [np.float32(detection['xyxy'][2] * 0.01), np.float32(detection['xyxy'][3] * 0.01)]
         ]
     )
 
