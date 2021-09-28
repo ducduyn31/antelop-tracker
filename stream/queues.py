@@ -3,7 +3,7 @@ import os
 from core.faust_app import faust_app as app
 from core.pubsub import PubSub
 from core.tracking_process import TrackingProcess
-from stream.topics import human_detect_minimal_queue
+from stream.topics import human_detect_minimal_queue, recognized_queue
 
 handlers = dict()
 
@@ -21,3 +21,10 @@ async def on_human_detected(stream):
 
         if len(detections) > 0:
             handlers[source].add_new_detection(event)
+
+
+@app.agent(recognized_queue, concurrency=int(os.getenv('FAUST_CONCURRENCY')))
+async def on_subject_recognize(stream):
+    async for event in stream:
+        oid, subject_id = event['oid'], event['subject_id']
+        # TODO: implement this by update object id with subject id in redis

@@ -9,3 +9,8 @@ tracking_queue = app.topic(
     'tracking',
     value_serializer='json'
 )
+
+recognized_queue = app.topic(
+    'recognized',
+    value_serializer='json',
+)
