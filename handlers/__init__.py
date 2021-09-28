@@ -1,13 +1,9 @@
-import asyncio
 import heapq
-import threading
-import time
-from typing import List, Sequence
+from typing import List
 
-import faust.cli.send
 import numpy as np
 from norfair import Tracker, Detection
-from stream.topics import tracking_queue
+
 from utils import normalize_bbox
 
 
