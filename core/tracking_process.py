@@ -1,5 +1,5 @@
 import asyncio
-import heapq
+from queue import PriorityQueue
 import os
 import threading
 from multiprocessing import Process, Queue
@@ -18,7 +18,7 @@ class TrackingProcess(Process):
         self._queue = Queue()
         self._tracker = None
         self._redis_uri = redis_uri
-        self._heap = []
+        self._heap = PriorityQueue()
         self._source = source
         self._distance_threshold = distance_threshold
         self._pubsub = None
@@ -36,7 +36,7 @@ class TrackingProcess(Process):
             return
 
         message = (order, new_detection)
-        heapq.heappush(self._heap, message)
+        self._heap.put(message)
         self._pubsub.publish_time_event(new_detection['frame_id'], new_detection, 5)
         self._last_frame_order = order
 

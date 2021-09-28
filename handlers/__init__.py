@@ -42,7 +42,7 @@ def tracking_object(loop, topic, detections, source, objects):
 
 def on_human_detect(loop, topic, heap, tracker: Tracker):
     def handle_event(_):
-        _, event = heapq.heappop(heap)
+        _, event = heap.get()
         source, order, timestamp = event['source'], event['order'], event['timestamp']
         detections = event['detections']
         norfair_detection = yolo_detections_to_norfair_detections(yolo_detections=detections)
