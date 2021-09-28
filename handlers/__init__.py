@@ -1,7 +1,8 @@
-import heapq
+from stream.topics import HumanDetectionMessage
 from typing import List
 
 import numpy as np
+import redis
 from norfair import Tracker, Detection
 
 from utils import normalize_bbox
@@ -16,8 +17,7 @@ def yolo_detections_to_norfair_detections(yolo_detections: list) -> List[Detecti
     return norfair_detections
 
 
-def tracking_object(loop, topic, detections, source, objects):
-
+def tracking_object(loop, topic, detections, source, objects, timestamp, frame_id, frame_order, frame):
     for obj in objects:
         if not obj.live_points.any():
             continue
@@ -31,11 +31,8 @@ def tracking_object(loop, topic, detections, source, objects):
         for detection in detections:
             yolo_bbox = normalize_bbox(detection)
             if (yolo_bbox == obj_bbox).all():
-                match_id = {
-                    "object_id": obj_id,
-                    "uuid": detection['id'],
-                    "source": source
-                }
+                match_id = HumanDetectionMessage(frame_id=frame_id, frame=frame, detections=detections, source=source,
+                                                 timestamp=timestamp, frame_order=frame_order, object_id=obj_id)
                 loop.call_soon_threadsafe(loop.create_task, topic.send(value=match_id))
                 break
 
@@ -43,10 +40,10 @@ def tracking_object(loop, topic, detections, source, objects):
 def on_human_detect(loop, topic, heap, tracker: Tracker):
     def handle_event(_):
         _, event = heap.get()
-        source, order, timestamp = event['source'], event['order'], event['timestamp']
-        detections = event['detections']
+        frame, frame_order, frame_id, source, order, timestamp = event.frame, event.frame_order, event.frame_id, event.source, event.frame_order, event.timestamp
+        detections = event.detections
         norfair_detection = yolo_detections_to_norfair_detections(yolo_detections=detections)
         objects = tracker.update(norfair_detection)
-        tracking_object(loop, topic, detections, source, objects)
+        tracking_object(loop, topic, detections, source, objects, timestamp, frame_id, frame_order, frame)
 
     return handle_event

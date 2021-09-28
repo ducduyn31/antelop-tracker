@@ -3,6 +3,7 @@ from queue import PriorityQueue
 import os
 import threading
 from multiprocessing import Process, Queue
+from stream.topics import HumanDetectionMessage
 
 import faust
 from norfair import Tracker
@@ -30,14 +31,14 @@ class TrackingProcess(Process):
     def add_new_detection(self, detections):
         self._queue.put(detections, block=False)
 
-    def handle_new_detection(self, new_detection):
-        order = new_detection['order']
+    def handle_new_detection(self, new_detection: HumanDetectionMessage):
+        order = new_detection.frame_order
         if order < self._last_frame_order:
             return
 
         message = (order, new_detection)
         self._heap.put(message)
-        self._pubsub.publish_time_event(new_detection['frame_id'], new_detection, 5)
+        self._pubsub.publish_time_event(new_detection.frame_id, 5)
         self._last_frame_order = order
 
     def setup_pubsub(self):

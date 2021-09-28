@@ -24,8 +24,8 @@ class PubSub:
         self._pubsub.subscribe(**{f'__keyevent@{self._db}__:{key_event}': callback})
         self._pubsub.run_in_thread(sleep_time=.01)
 
-    def publish_time_event(self, key, value, expire):
-        self._redis.set(key, json.dumps(value), ex=expire)
+    def publish_time_event(self, key, expire):
+        self._redis.set(key, "", ex=expire)
 
     @staticmethod
     def __parse_connection_uri(uri: str):
