@@ -4,11 +4,7 @@ ENV POETRY_VERSION=1.1.8
 
 ENV POETRY_VERSION=1.1.8
 
-RUN apt-get update && \
-    pip install "poetry==$POETRY_VERSION" && \
-    useradd -U celery && rm -rf /var/cache/apt && \
-    mkdir -p /var/log/celery && chown celery /var/log/celery && \
-    mkdir -p /var/run/celery && chown celery /var/run/celery
+RUN apt-get update && pip install "poetry==$POETRY_VERSION"
 
 WORKDIR /app
 
