@@ -10,8 +10,12 @@ handlers = dict()
 @app.agent(human_detect_full_queue, concurrency=int(os.getenv('FAUST_CONCURRENCY')))
 async def on_human_detected(stream):
     async for event in stream:
+        if event is None:
+            continue
         source, order, timestamp = event['source'], event['frame_order'], event['timestamp']
         detections = event['detections']
+
+        print(f'received packet {order} from {source}')
 
         if source not in handlers or not handlers[source].is_alive():
             proc = TrackingProcess(source=source, redis_uri=os.getenv('REDIS_URI'))
