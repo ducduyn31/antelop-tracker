@@ -16,7 +16,6 @@ class HumanDetectionMessage(Record, serializer='pickle'):
 
 human_detect_full_queue = app.topic(
     'human_detect',
-    value_serializer='pickle',
     value_type=HumanDetectionMessage
 )
 

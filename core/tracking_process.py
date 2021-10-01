@@ -53,7 +53,6 @@ class TrackingProcess(Process):
             self._kafka_app = faust.App('antelope-tracker',
                                         broker=os.getenv('KAFKA_URI'),
                                         value_serializer='json',
-                                        producer_compression_type='gzip',
                                         producer_max_request_size='5000000',
                                         )
             self._topic = self._kafka_app.topic(
