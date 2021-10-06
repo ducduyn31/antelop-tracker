@@ -1,9 +1,4 @@
-import json
-import os
-
 import redis
-
-from utils import Singleton
 
 
 class PubSub:
