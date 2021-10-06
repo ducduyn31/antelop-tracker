@@ -1,3 +1,4 @@
+import logging
 import os
 
 from core.faust_app import faust_app as app
@@ -9,25 +10,27 @@ handlers = dict()
 
 @app.agent(human_detect_full_queue, concurrency=int(os.getenv('FAUST_CONCURRENCY')))
 async def on_human_detected(stream):
-    async for event in stream:
-        if event is None:
-            continue
-        source, order, timestamp = event['source'], event['frame_order'], event['timestamp']
-        detections = event['detections']
+    try:
+        async for event in stream:
+            if event is None:
+                continue
+            source, order, timestamp = event['source'], event['frame_order'], event['timestamp']
+            detections = event['detections']
 
-        print(f'received packet {order} from {source}')
+            if source not in handlers or not handlers[source].is_alive():
+                proc = TrackingProcess(source=source, redis_uri=os.getenv('REDIS_URI'))
+                handlers[source] = proc
+                proc.start()
 
-        if source not in handlers or not handlers[source].is_alive():
-            proc = TrackingProcess(source=source, redis_uri=os.getenv('REDIS_URI'))
-            handlers[source] = proc
-            proc.start()
-
-        if len(detections) > 0:
-            handlers[source].add_new_detection(event)
+            if len(detections) > 0:
+                handlers[source].add_new_detection(event)
+    except Exception as e:
+        logging.error(e)
 
 
 @app.agent(recognized_queue, concurrency=int(os.getenv('FAUST_CONCURRENCY')))
 async def on_subject_recognize(stream):
     async for event in stream:
-        oid, subject_id = event['oid'], event['subject_id']
+        tracking_id, subject_id = event['tracking_id'], event['subject_id']
+        source, timestamp = event['source'], event['timestamp']
         # TODO: implement this by update object id with subject id in redis

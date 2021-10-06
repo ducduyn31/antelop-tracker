@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 import numpy as np
@@ -32,6 +33,7 @@ def tracking_object(loop, topic, detections, source, objects, timestamp, frame_i
                 match_id = dict(frame_id=frame_id, frame=frame, detections=detections, source=source,
                                 timestamp=timestamp, frame_order=frame_order, object_id=obj_id)
                 loop.call_soon_threadsafe(loop.create_task, topic.send(value=match_id))
+                logging.info(f'Sent {frame_order} at {timestamp}')
                 break
 
 
