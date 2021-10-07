@@ -23,6 +23,7 @@ async def on_human_detected(stream):
                 proc.start()
 
             if len(detections) > 0:
+                logging.info(f'received {order} from {source}')
                 handlers[source].add_new_detection(event)
     except Exception as e:
         logging.error(e)
