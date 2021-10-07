@@ -7,9 +7,9 @@ authors = ["Duy Nguyen <ducduy.ababat@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.8"
 faust-streaming = {extras = ["uvloop", "fast"], version = "^0.6.9"}
-norfair = "^0.3.1"
 python-dotenv = "^0.19.0"
 redis = "^3.5.3"
+norfair = {git = "https://github.com/ducduyn31/norfair.git"}
 
 [tool.poetry.dev-dependencies]
 
