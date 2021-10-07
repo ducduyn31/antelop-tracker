@@ -21,9 +21,8 @@ async def on_human_detected(stream):
                 proc = TrackingProcess(source=source, redis_uri=os.getenv('REDIS_URI'))
                 handlers[source] = proc
                 proc.start()
-
+            logging.info(f'received {order} with {len(detections)} from {source}')
             if len(detections) > 0:
-                logging.info(f'received {order} from {source}')
                 handlers[source].add_new_detection(event)
     except Exception as e:
         logging.error(e)
