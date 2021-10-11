@@ -1,8 +1,7 @@
-from stream.topics import HumanDetectionMessage
+import logging
 from typing import List
 
 import numpy as np
-import redis
 from norfair import Tracker, Detection
 
 from utils import normalize_bbox
@@ -31,17 +30,19 @@ def tracking_object(loop, topic, detections, source, objects, timestamp, frame_i
         for detection in detections:
             yolo_bbox = normalize_bbox(detection)
             if (yolo_bbox == obj_bbox).all():
-                match_id = HumanDetectionMessage(frame_id=frame_id, frame=frame, detections=detections, source=source,
-                                                 timestamp=timestamp, frame_order=frame_order, object_id=obj_id)
+                match_id = dict(frame_id=frame_id, frame=frame, detections=detections, source=source,
+                                timestamp=timestamp, frame_order=frame_order, object_id=obj_id)
                 loop.call_soon_threadsafe(loop.create_task, topic.send(value=match_id))
+                logging.info(f'Sent {frame_order} at {timestamp} from {source}')
                 break
 
 
 def on_human_detect(loop, topic, heap, tracker: Tracker):
     def handle_event(_):
         _, event = heap.get()
-        frame, frame_order, frame_id, source, order, timestamp = event.frame, event.frame_order, event.frame_id, event.source, event.frame_order, event.timestamp
-        detections = event.detections
+        frame, frame_order, frame_id, source, order, timestamp = event['frame'], event['frame_order'], event[
+            'frame_id'], event['source'], event['frame_order'], event['timestamp']
+        detections = event['detections']
         norfair_detection = yolo_detections_to_norfair_detections(yolo_detections=detections)
         objects = tracker.update(norfair_detection)
         tracking_object(loop, topic, detections, source, objects, timestamp, frame_id, frame_order, frame)
